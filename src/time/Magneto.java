@@ -3,6 +3,8 @@ package time;
 import java.awt.Color;
 
 import robocode.AdvancedRobot;
+import robocode.BulletHitEvent;
+import robocode.BulletMissedEvent;
 import robocode.HitByBulletEvent;
 import robocode.HitRobotEvent;
 import robocode.HitWallEvent;
@@ -13,10 +15,9 @@ public class Magneto extends AdvancedRobot {
 
 	private double distanciaInimigo;
 	private double anguloDoInimigo;
-	
-	int acertos = 0;
-	int erros = 0;
-	
+
+	private int acertos = 0;
+	private int erros = 0;
 
 	@Override
 	public void run() {
@@ -32,10 +33,11 @@ public class Magneto extends AdvancedRobot {
 	public void tiroCerto(ScannedRobotEvent inimigo) {
 		distanciaInimigo = inimigo.getDistance();
 		anguloDoInimigo = inimigo.getBearing();
-
-		turnGunRight(relatividadeAngular(anguloDoInimigo + getHeading() - getGunHeading()));
-
-		if (distanciaInimigo < 200) {
+		
+		setTurnGunRight((relatividadeAngular(anguloDoInimigo + getHeading() - getGunHeading())));
+		if (inimigo.getEnergy() < 12) {
+			fire((inimigo.getEnergy() / 4) + .1);
+		} else if (distanciaInimigo <= 200) {
 			fire(3);
 		} else if (distanciaInimigo > 200 && distanciaInimigo <= 325) {
 			fire(2);
@@ -43,10 +45,22 @@ public class Magneto extends AdvancedRobot {
 			fire(1);
 		} else {
 			turnRight(relatividadeAngular(anguloDoInimigo));
-			ahead(distanciaInimigo * 0.6);
+			ahead(distanciaInimigo * 0.3);
 			fire(1);
 		}
 
+	}
+
+	@Override
+	public void onBulletHit(BulletHitEvent event) {
+		acertos++;
+		System.out.println("Acertos: " + acertos);
+	}
+
+	@Override
+	public void onBulletMissed(BulletMissedEvent event) {
+		erros++;
+		System.out.println("Erros" + erros);
 	}
 
 	@Override
@@ -77,7 +91,7 @@ public class Magneto extends AdvancedRobot {
 	public void onHitRobot(HitRobotEvent event) {
 		anguloDoInimigo = event.getBearing();
 		turnGunRight(relatividadeAngular(anguloDoInimigo + getHeading() - getGunHeading()));
-		fire(3);
+		fireBullet(3);
 	}
 
 	public double relatividadeAngular(double angulo) {
@@ -93,37 +107,51 @@ public class Magneto extends AdvancedRobot {
 		}
 		return miraRapida;
 	}
-	
-	
-	public void defineEstrategia(ScannedRobotEvent inimigo){
-		if(getEnergy() > 70 && inimigo.getEnergy() < 40){
+
+	public void defineEstrategia(ScannedRobotEvent inimigo) {
+		if(getOthers() == 1){
+			double fixaMira = relatividadeAngular(inimigo.getBearing() + (getHeading() - getRadarHeading()));
+			setTurnGunRight(fixaMira);
+		}
+		
+		if (getEnergy() > 70 && inimigo.getEnergy() < 40) {
 			jogaPraCimaDeles(inimigo);
-		} else if ((getEnergy() > 35 && getEnergy() <=70) || (getEnergy() <= inimigo.getEnergy())){
+		} else if ((getEnergy() > 35 && getEnergy() <= 70) || (getEnergy() <= inimigo.getEnergy())) {
 			jogaNormal();
 		} else {
 			jogaNaRetranca();
 		}
 	}
-	
+
 	public void jogaPraCimaDeles(ScannedRobotEvent inimigo) {
 		distanciaInimigo = inimigo.getDistance();
 		anguloDoInimigo = inimigo.getBearing();
-
-		turnGunRight(relatividadeAngular(anguloDoInimigo + getHeading() - getGunHeading()));
+		
 		turnRight(relatividadeAngular(anguloDoInimigo));
 		ahead(distanciaInimigo * 0.4);
+		tiroCerto(inimigo);
 	}
-	
-	public void jogaNormal(){
-		this.setAhead(100);
-		this.setTurnRadarRight(90);
+
+	public void jogaNormal() {
+		setAhead(100);
+		setTurnRadarRight(90);
 	}
-	
 
 	public void jogaNaRetranca() {
-		//colocar ele proximo da parede
-		back(300);
+		// colocar ele proximo da parede
+		while (!vaiBaterNaParede()) {
+			back(100);
+		}
+		turnRight(90);
+		setAhead(300);
+		turnRight(180);
+		setAhead(300);
 		
+	}
+
+	public boolean vaiBaterNaParede() {
+		return ((getX() < getBattleFieldWidth() - 50 || getX() > 50)
+				|| (getY() < getBattleFieldHeight() - 50 || getY() > 50));
 	}
 
 }
